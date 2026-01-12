@@ -9,8 +9,7 @@ pub async fn login_spotify(id: String, secret: String) -> AuthCodeSpotify {
         redirect_uri: "http://127.0.0.1:8888/callback".to_string(),
         scopes: scopes!(
             "playlist-read-private",
-            "playlist-read-collaborative"
-            // "user-library-read"
+            "playlist-read-collaborative" // "user-library-read"
         ),
         ..Default::default()
     };

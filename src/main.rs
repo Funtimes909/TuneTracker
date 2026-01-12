@@ -4,7 +4,7 @@ use clap::{Parser, arg};
 use futures::{TryStreamExt, pin_mut};
 use rspotify::prelude::BaseClient;
 use rspotify_model::{PlayableItem, PlaylistId};
-use services::subsonic;
+use services::{spotify, subsonic};
 
 use crate::services::Track;
 
@@ -37,38 +37,33 @@ struct Args {
 async fn main() {
     let args = Args::parse();
 
-    let spotify_client = services::spotify::login_spotify(args.client_id, args.client_secret).await;
+    let spotify_client = spotify::login_spotify(args.client_id, args.client_secret).await;
 
     let subsonic_client = subsonic::login_subsonic(
         args.subsonic_url,
         args.subsonic_user,
         args.subsonic_password,
-    )
-    .await;
+    );
 
     let subsonic_songs = subsonic::fetch_subsonic_songs(&subsonic_client).await;
 
     let id = match PlaylistId::from_id_or_uri(&args.playlist) {
         Ok(id) => id,
         Err(e) => {
-            println!("Error converting playlist to ID {}", e.to_string());
+            println!("Error converting playlist to ID {}", e);
             std::process::exit(1);
         }
     };
 
-    // let fields = "tracks.items(track(name,duration_ms,track_number,is_local,album(name,total_tracks,release_date),artists(name)))";
     let stream = spotify_client.playlist_items(id, None, None);
     let mut tracks: Vec<Track> = Vec::new();
     pin_mut!(stream);
 
-    while let Some(item) = stream.try_next().await.unwrap() {
-        match item.track {
-            Some(PlayableItem::Track(track)) => {
-                if let Ok(track) = track.try_into() {
-                    tracks.push(track);
-                }
-            }
-            _ => (),
+    while let Ok(Some(item)) = stream.try_next().await {
+        if let Some(PlayableItem::Track(track)) = item.track
+            && let Ok(track) = track.try_into()
+        {
+            tracks.push(track);
         }
     }
 

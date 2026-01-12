@@ -2,7 +2,7 @@ use crate::services::Track;
 use submarine::{Client, auth::AuthBuilder};
 
 /// Login to subsonic server
-pub async fn login_subsonic(url: String, user: String, pass: String) -> Client {
+pub fn login_subsonic(url: String, user: String, pass: String) -> Client {
     let auth = AuthBuilder::new(user, "1.16.1")
         .client_name("TuneTracker")
         .hashed(&pass);
@@ -23,12 +23,12 @@ pub async fn fetch_subsonic_songs(client: &Client) -> Vec<Track> {
         {
             Ok(r) => r.song,
             Err(e) => {
-                println!("Error while searching for songs! {}", e.to_string());
+                println!("Error while searching for songs! {}", e);
                 std::process::exit(1)
             }
         };
 
-        if search_results.len() != 0 {
+        if !search_results.is_empty() {
             offset += 20;
 
             search_results
@@ -46,7 +46,7 @@ pub async fn fetch_subsonic_songs(client: &Client) -> Vec<Track> {
 /// Creates the playlist and adds the song ID's of matched tracks
 pub async fn create_playlist(client: &Client, name: String, songs: Vec<impl Into<String>>) {
     if let Err(e) = client.create_playlist(&name, songs).await {
-        println!("Subsonic error while creating playlist! {}", e.to_string());
+        println!("Subsonic error while creating playlist! {}", e);
         std::process::exit(1)
     }
 }

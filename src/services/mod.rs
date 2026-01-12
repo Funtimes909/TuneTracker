@@ -35,7 +35,7 @@ impl Track {
         let mut track_matching = false;
         let mut album_matching = false;
 
-        let multi_disc_album = if track1.disc_number > 1 { true } else { false };
+        let multi_disc_album = track1.disc_number > 1;
 
         if track1.artist.to_lowercase() == track2.artist.to_lowercase() {
             match_percent += 20
@@ -73,13 +73,10 @@ impl Track {
 
         // Spotify resets the track number for each disc, meaning the track_number
         // is unreliable unless it's not a multi-disc album
-        if track1.disc_number == 1 {
-            if track1.track_number == track2.track_number {
-                match_percent += 20
-            }
+        if track1.disc_number == 1 && track1.track_number == track2.track_number {
+            match_percent += 20
         }
 
-        
         // Debugging
         // let status = Match {
         //     title: track_matching,
@@ -105,12 +102,12 @@ impl Track {
     }
 }
 
-// Takes a single track and a list
-pub fn search(spotify_track: Track, subsonic_songs: &Vec<Track>) -> Vec<String> {
-    subsonic_songs
-        .into_iter()
-        .filter(|t| Track::match_tracks(&spotify_track, t))
-        .map(|s| s.id.clone())
+// Find matches from a spotify track and a collection of tracks
+pub fn search(track: Track, collection: &[Track]) -> Vec<String> {
+    collection
+        .iter()
+        .filter(|t| Track::match_tracks(&track, t))
+        .map(|t| t.id.clone())
         .collect()
 }
 
@@ -135,8 +132,9 @@ impl TryFrom<FullTrack> for Track {
             track_number: track.track_number,
             disc_number: track.disc_number as u32,
             year: release_year,
-            // Source platforms don't need to provide an ID
-            id: String::new(),
+            // Spotify song id, needed for downloading the
+            // song using external tools in the future
+            id: track.id.ok_or(())?.to_string(),
         })
     }
 }
@@ -153,6 +151,8 @@ impl TryFrom<Child> for Track {
             track_number: track.track.ok_or(())? as u32,
             disc_number: track.disc_number.unwrap_or(0) as u32,
             year: track.year.ok_or(())?,
+            // Subsonic song ID, needed for adding
+            // song to a playlist
             id: track.id,
         })
     }
