@@ -4,7 +4,7 @@ pub mod subsonic;
 use rspotify_model::FullTrack;
 use submarine::data::Child;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Track {
     pub title: String,
     pub artist: String,
@@ -30,6 +30,8 @@ struct Match {
 
 #[allow(unused)]
 impl Track {
+    // Compares different aspects of two songs and gives a rating based on how well they match
+    // A song is considered a match if the rating is 70 or higher
     pub fn match_tracks(track1: &Self, track2: &Self) -> bool {
         let mut match_percent = 0;
         let mut track_matching = false;
@@ -102,18 +104,24 @@ impl Track {
     }
 }
 
-// Find matches from a spotify track and a collection of tracks
-pub fn search(track: Track, collection: &[Track]) -> Vec<String> {
-    collection
-        .iter()
-        .filter(|t| Track::match_tracks(&track, t))
-        .map(|t| t.id.clone())
-        .collect()
+// Takes a single source track and a slice of target tracks and compares the source against
+// each item of the slice. Returning the first track ID with the highest match, or the source
+// track ID.
+pub fn search(source_track: Track, collection: &[Track]) -> String {
+    // TODO! handle instances where they may be more than one match (remasters, remixes, etc)
+    for target_track in collection {
+        if Track::match_tracks(&source_track, target_track) {
+            return target_track.id.clone();
+        }
+    }
+
+    source_track.id.clone()
 }
 
 /// Spotify
 impl TryFrom<FullTrack> for Track {
     type Error = ();
+
     fn try_from(track: FullTrack) -> Result<Self, ()> {
         // Get release year
         let release_year: i32 = match track.album.release_date {
@@ -142,6 +150,7 @@ impl TryFrom<FullTrack> for Track {
 /// Subsonic
 impl TryFrom<Child> for Track {
     type Error = ();
+
     fn try_from(track: Child) -> Result<Self, ()> {
         Ok(Self {
             title: track.title,

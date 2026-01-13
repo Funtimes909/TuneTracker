@@ -6,7 +6,7 @@ use rspotify::prelude::BaseClient;
 use rspotify_model::{PlayableItem, PlaylistId};
 use services::{spotify, subsonic};
 
-use crate::services::Track;
+use crate::services::{Track, search};
 
 #[derive(Parser)]
 #[command(name = "TuneTracker")]
@@ -45,7 +45,7 @@ async fn main() {
         args.subsonic_password,
     );
 
-    let subsonic_songs = subsonic::fetch_subsonic_songs(&subsonic_client).await;
+    let subsonic_tracks = subsonic::fetch_subsonic_songs(&subsonic_client).await;
 
     let id = match PlaylistId::from_id_or_uri(&args.playlist) {
         Ok(id) => id,
@@ -56,22 +56,21 @@ async fn main() {
     };
 
     let stream = spotify_client.playlist_items(id, None, None);
-    let mut tracks: Vec<Track> = Vec::new();
+    let mut spotify_tracks: Vec<Track> = Vec::new();
     pin_mut!(stream);
 
     while let Ok(Some(item)) = stream.try_next().await {
         if let Some(PlayableItem::Track(track)) = item.track
             && let Ok(track) = track.try_into()
         {
-            tracks.push(track);
+            spotify_tracks.push(track);
         }
     }
 
-    let mut matches: Vec<String> = Vec::new();
-
-    for spotify_track in tracks {
-        matches.append(&mut services::search(spotify_track, &subsonic_songs));
-    }
+    let matches: Vec<String> = spotify_tracks
+        .into_iter()
+        .map(|t| search(t, &subsonic_tracks))
+        .collect();
 
     subsonic::create_playlist(&subsonic_client, args.playlist_name, matches).await;
 }
