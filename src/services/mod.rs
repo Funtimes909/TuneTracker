@@ -325,10 +325,14 @@ mod tests {
                 year: 2015,
                 id: String::from("xxx"),
                 source: TrackSource::Subsonic,
-            }
+            },
         ];
 
-        let matches: Vec<Track> = spotify_songs.into_iter().map(|t| search(t, &subsonic_songs)).filter(|t| t.source == TrackSource::Subsonic).collect();
+        let matches: Vec<Track> = spotify_songs
+            .into_iter()
+            .map(|t| search(t, &subsonic_songs))
+            .filter(|t| t.source == TrackSource::Subsonic)
+            .collect();
 
         assert_eq!(matches.len(), 6)
     }
