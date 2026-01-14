@@ -14,6 +14,13 @@ pub struct Track {
     pub disc_number: u32,
     pub year: i32,
     pub id: String,
+    pub source: TrackSource,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum TrackSource {
+    Subsonic,
+    Spotify,
 }
 
 #[derive(Debug)]
@@ -105,17 +112,21 @@ impl Track {
 }
 
 // Takes a single source track and a slice of target tracks and compares the source against
-// each item of the slice. Returning the first track ID with the highest match, or the source
-// track ID.
-pub fn search(source_track: Track, collection: &[Track]) -> String {
+// each item of the slice. Returning the first track with the highest match, or the source
+// track if no match is found.
+//
+// The source playlist must be recreated 1:1 even if the track doesn't match because the subsonic
+// api doesn't support adding tracks at a specific index. so the songs must be added all at once
+// and iterated through, adding the matches and prompting for user input for the missing songs
+pub fn search(source_track: Track, collection: &[Track]) -> Track {
     // TODO! handle instances where they may be more than one match (remasters, remixes, etc)
     for target_track in collection {
         if Track::match_tracks(&source_track, target_track) {
-            return target_track.id.clone();
+            return target_track.clone();
         }
     }
 
-    source_track.id.clone()
+    source_track
 }
 
 /// Spotify
@@ -140,9 +151,8 @@ impl TryFrom<FullTrack> for Track {
             track_number: track.track_number,
             disc_number: track.disc_number as u32,
             year: release_year,
-            // Spotify song id, needed for downloading the
-            // song using external tools in the future
             id: track.id.ok_or(())?.to_string(),
+            source: TrackSource::Spotify,
         })
     }
 }
@@ -160,9 +170,8 @@ impl TryFrom<Child> for Track {
             track_number: track.track.ok_or(())? as u32,
             disc_number: track.disc_number.unwrap_or(0) as u32,
             year: track.year.ok_or(())?,
-            // Subsonic song ID, needed for adding
-            // song to a playlist
             id: track.id,
+            source: TrackSource::Subsonic,
         })
     }
 }

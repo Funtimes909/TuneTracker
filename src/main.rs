@@ -6,7 +6,7 @@ use rspotify::prelude::BaseClient;
 use rspotify_model::{PlayableItem, PlaylistId};
 use services::{spotify, subsonic};
 
-use crate::services::{Track, search};
+use crate::services::{Track, TrackSource, search};
 
 #[derive(Parser)]
 #[command(name = "TuneTracker")]
@@ -16,6 +16,9 @@ struct Args {
 
     #[arg(long)]
     playlist_name: String,
+
+    #[arg(long)]
+    playlist_description: String,
 
     #[arg(long)]
     client_id: String,
@@ -67,10 +70,21 @@ async fn main() {
         }
     }
 
-    let matches: Vec<String> = spotify_tracks
+    let playlist = spotify_tracks
         .into_iter()
         .map(|t| search(t, &subsonic_tracks))
+        .filter(|t| t.source == TrackSource::Subsonic)
         .collect();
 
-    subsonic::create_playlist(&subsonic_client, args.playlist_name, matches).await;
+    match subsonic::create_playlist(
+        &subsonic_client,
+        args.playlist_name,
+        args.playlist_description,
+        playlist,
+    )
+    .await
+    {
+        Ok(_) => println!("Playlist created!"),
+        Err(e) => println!("Error during playlist creation! {e}"),
+    }
 }

@@ -1,5 +1,5 @@
 use crate::services::Track;
-use submarine::{Client, auth::AuthBuilder};
+use submarine::{Client, SubsonicError, auth::AuthBuilder, data::Info};
 
 /// Login to subsonic server
 pub fn login_subsonic(url: String, user: String, pass: String) -> Client {
@@ -44,9 +44,23 @@ pub async fn fetch_subsonic_songs(client: &Client) -> Vec<Track> {
 }
 
 /// Creates the playlist and adds the song ID's of matched tracks
-pub async fn create_playlist(client: &Client, name: String, songs: Vec<impl Into<String>>) {
-    if let Err(e) = client.create_playlist(&name, songs).await {
-        println!("Subsonic error while creating playlist! {}", e);
-        std::process::exit(1)
-    }
+pub async fn create_playlist(
+    client: &Client,
+    name: String,
+    comment: String,
+    tracks: Vec<Track>,
+) -> Result<Info, SubsonicError> {
+    let empty_vec: Vec<String> = Vec::new();
+    let playlist_id = client.create_playlist(name, empty_vec).await?.base.id;
+
+    client
+        .update_playlist(
+            playlist_id,
+            Some(""),
+            Some(comment),
+            Some(false),
+            tracks.into_iter().map(|t| t.id).collect(),
+            vec![],
+        )
+        .await
 }
