@@ -175,3 +175,161 @@ impl TryFrom<Child> for Track {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_matching() {
+        // Using example songs from spotify
+        let spotify_songs = vec![
+            Track {
+                title: String::from("St. Tristan's Sword - Rough Mix"),
+                artist: String::from("Led Zeppelin"),
+                album: String::from("Coda (Deluxe Edition)"),
+                duration: 341,
+                track_number: 3,
+                disc_number: 3,
+                year: 1982,
+                id: String::from("xxx"),
+                source: TrackSource::Spotify,
+            },
+            Track {
+                title: String::from("The Court Of The Crimson King"),
+                artist: String::from("King Crimson"),
+                album: String::from(
+                    "In The Court Of The Crimson King (Expanded & Remastered Original Album Mix)",
+                ),
+                duration: 602,
+                track_number: 5,
+                disc_number: 1,
+                year: 1969,
+                id: String::from("xxx"),
+                source: TrackSource::Spotify,
+            },
+            Track {
+                title: String::from("Pictures Of A City"),
+                artist: String::from("King Crimson"),
+                album: String::from("In The Wake Of Poseidon"),
+                duration: 481,
+                track_number: 2,
+                disc_number: 1,
+                year: 1970,
+                id: String::from("xxx"),
+                source: TrackSource::Spotify,
+            },
+            Track {
+                title: String::from("The Wanton Song - Remaster"),
+                artist: String::from("Led Zeppelin"),
+                album: String::from("Physical Graffiti (Remaster)"),
+                duration: 248,
+                track_number: 6,
+                disc_number: 2,
+                year: 1975,
+                id: String::from("xxx"),
+                source: TrackSource::Spotify,
+            },
+            Track {
+                title: String::from("The Sky Is Fallin'"),
+                artist: String::from("Queens of the Stone Age"),
+                album: String::from("Songs For The Deaf"),
+                duration: 376,
+                track_number: 5,
+                disc_number: 1,
+                year: 2002,
+                id: String::from("xxx"),
+                source: TrackSource::Spotify,
+            },
+            Track {
+                title: String::from("Street Spirit (Fade Out)"),
+                artist: String::from("Radiohead"),
+                album: String::from("The Bends"),
+                duration: 253,
+                track_number: 12,
+                disc_number: 1,
+                year: 1995,
+                id: String::from("xxx"),
+                source: TrackSource::Spotify,
+            },
+        ];
+
+        // The same songs information from my personal navidrome instance
+        // Tagged automatically using beets autotagger. https://github.com/beetbox/beets
+        let subsonic_songs = vec![
+            Track {
+                title: String::from("The Sky Is Fallin'"),
+                artist: String::from("Queens of the Stone Age"),
+                album: String::from("Songs For The Deaf"),
+                duration: 375,
+                track_number: 6,
+                disc_number: 1,
+                year: 2002,
+                id: String::from("xxx"),
+                source: TrackSource::Subsonic,
+            },
+            Track {
+                title: String::from("Pictures of a City (including 42nd at Treadmill)"),
+                artist: String::from("King Crimson"),
+                album: String::from("In the Wake of Poseidon"),
+                duration: 482,
+                track_number: 2,
+                disc_number: 1,
+                // This albums release date is incorrect. Subsonic/navidrome only returns the year
+                // the song was remastered, not the year it was originally released.
+                year: 2011,
+                id: String::from("xxx"),
+                source: TrackSource::Subsonic,
+            },
+            Track {
+                title: String::from("The Wanton Song"),
+                artist: String::from("Led Zeppelin"),
+                album: String::from("Physical Graffiti"),
+                duration: 249,
+                track_number: 12,
+                disc_number: 2,
+                // Another incorrectly tagged album release year
+                year: 1995,
+                id: String::from("xxx"),
+                source: TrackSource::Subsonic,
+            },
+            Track {
+                title: String::from("Street Spirit"),
+                artist: String::from("Radiohead"),
+                album: String::from("The Bends"),
+                duration: 254,
+                track_number: 12,
+                disc_number: 1,
+                year: 1994,
+                id: String::from("xxx"),
+                source: TrackSource::Subsonic,
+            },
+            Track {
+                title: String::from("The Court of the Crimson King"),
+                artist: String::from("King Crimson"),
+                album: String::from("In the Court of the Crimson King"),
+                duration: 567,
+                track_number: 5,
+                disc_number: 1,
+                year: 2019,
+                id: String::from("xxx"),
+                source: TrackSource::Subsonic,
+            },
+            Track {
+                title: String::from("St. Tristan’s Sword (rough mix)"),
+                artist: String::from("Led Zeppelin"),
+                album: String::from("Coda"),
+                duration: 341,
+                track_number: 19,
+                disc_number: 3,
+                year: 2015,
+                id: String::from("xxx"),
+                source: TrackSource::Subsonic,
+            }
+        ];
+
+        let matches: Vec<Track> = spotify_songs.into_iter().map(|t| search(t, &subsonic_songs)).filter(|t| t.source == TrackSource::Subsonic).collect();
+
+        assert_eq!(matches.len(), 6)
+    }
+}
