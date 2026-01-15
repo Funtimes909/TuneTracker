@@ -73,7 +73,7 @@ async fn main() {
     let playlist = spotify_tracks
         .into_iter()
         .map(|t| search(t, &subsonic_tracks))
-        .filter(|t| t.source == TrackSource::Subsonic)
+        .filter(|t| t.track_source == TrackSource::Subsonic)
         .collect();
 
     match subsonic::create_playlist(

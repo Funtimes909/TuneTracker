@@ -14,7 +14,7 @@ pub struct Track {
     pub disc_number: u32,
     pub year: i32,
     pub id: String,
-    pub source: TrackSource,
+    pub track_source: TrackSource,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -39,75 +39,65 @@ struct Match {
 impl Track {
     // Compares different aspects of two songs and gives a rating based on how well they match
     // A song is considered a match if the rating is 70 or higher
-    pub fn match_tracks(track1: &Self, track2: &Self) -> bool {
+    pub fn match_tracks(source: &Self, target: &Self) -> bool {
         let mut match_percent = 0;
-        let mut track_matching = false;
-        let mut album_matching = false;
 
-        let multi_disc_album = track1.disc_number > 1;
+        let multi_disc_album = source.disc_number > 1;
 
-        if track1.artist.to_lowercase() == track2.artist.to_lowercase() {
-            match_percent += 20
-        }
+        // 1. Song name matching
+        match_percent += Self::string_comparisons(&source.title, &target.title);
+        
+        // 2. Album name matching
+        match_percent += Self::string_comparisons(&source.album, &target.album);
 
-        if track1.title.to_lowercase() == track2.title.to_lowercase()
-            || track1.title.contains(&track2.title)
-        {
-            track_matching = true;
-            match_percent += 20
-        }
-
-        if track1.album.to_lowercase() == track2.album.to_lowercase()
-            // If spotify album has a "(Remaster)" tag at the end of the album name
-            // This will match that on navidrome
-            || track1.album.contains(&track2.album)
-        {
-            album_matching = true;
+        // 3. Year matching
+        if source.year == target.year {
             match_percent += 10
         }
 
-        if track1.year == track2.year {
-            match_percent += 10
+        // 4. Artist name matching
+        if source.artist.to_lowercase() == target.artist.to_lowercase() {
+            match_percent += 20
         }
 
-        // Account for 1-3 seconds of variation in track duration
-        if ((track1.duration - track2.duration).abs()) <= 3 {
+        // 5. Account for 1-3 seconds of variation in track duration
+        if ((source.duration - target.duration).abs()) <= 3 {
             // If the duration is an exact match. rate it higher
-            if track1.duration == track2.duration {
+            if source.duration == target.duration {
                 match_percent += 20
             } else {
                 match_percent += 10;
             }
         }
 
+        // 6. Track number
         // Spotify resets the track number for each disc, meaning the track_number
         // is unreliable unless it's not a multi-disc album
-        if track1.disc_number == 1 && track1.track_number == track2.track_number {
+        if source.track_source == TrackSource::Spotify
+            && !multi_disc_album
+            && source.track_number == target.track_number
+        {
             match_percent += 20
         }
 
-        // Debugging
-        // let status = Match {
-        //     title: track_matching,
-        //     artist: track1.artist.to_lowercase() == track2.artist.to_lowercase(),
-        //     album: album_matching,
-        //     duration: ((track1.duration - track2.duration).abs()) <= 3,
-        //     track_number: track1.track_number == track2.track_number,
-        //     multi_disc_album: multi_disc_album,
-        //     year: track1.year == track2.year,
-        // };
+        match_percent >= 70
+    }
 
-        if match_percent >= 70 {
-            // println!("Match status for {}", track1.title);
-            // println!("{status:?}");
-            // println!(
-            //     "[{match_percent}] Found song with more than 70 match: {} by {} matches {} by {}",
-            //     track1.title, track1.artist, track2.title, track2.artist
-            // );
-            true
-        } else {
-            false
+    // Compare two strings and return a rating on how similar they are.
+    fn string_comparisons(string1: &str, string2: &str) -> i32 {
+        let source = string1.to_lowercase();
+        let target = string2.to_lowercase();
+
+        if source == target {
+            return 20;
         }
+
+        // If either source or target contain a prefix/suffix (eg. (Remaster))
+        if source.contains(&target) || target.contains(&source) {
+            return 10;
+        }
+
+        0
     }
 }
 
@@ -152,7 +142,7 @@ impl TryFrom<FullTrack> for Track {
             disc_number: track.disc_number as u32,
             year: release_year,
             id: track.id.ok_or(())?.to_string(),
-            source: TrackSource::Spotify,
+            track_source: TrackSource::Spotify,
         })
     }
 }
@@ -171,7 +161,7 @@ impl TryFrom<Child> for Track {
             disc_number: track.disc_number.unwrap_or(0) as u32,
             year: track.year.ok_or(())?,
             id: track.id,
-            source: TrackSource::Subsonic,
+            track_source: TrackSource::Subsonic,
         })
     }
 }
@@ -193,7 +183,7 @@ mod tests {
                 disc_number: 3,
                 year: 1982,
                 id: String::from("xxx"),
-                source: TrackSource::Spotify,
+                track_source: TrackSource::Spotify,
             },
             Track {
                 title: String::from("The Court Of The Crimson King"),
@@ -206,7 +196,7 @@ mod tests {
                 disc_number: 1,
                 year: 1969,
                 id: String::from("xxx"),
-                source: TrackSource::Spotify,
+                track_source: TrackSource::Spotify,
             },
             Track {
                 title: String::from("Pictures Of A City"),
@@ -217,7 +207,7 @@ mod tests {
                 disc_number: 1,
                 year: 1970,
                 id: String::from("xxx"),
-                source: TrackSource::Spotify,
+                track_source: TrackSource::Spotify,
             },
             Track {
                 title: String::from("The Wanton Song - Remaster"),
@@ -228,7 +218,7 @@ mod tests {
                 disc_number: 2,
                 year: 1975,
                 id: String::from("xxx"),
-                source: TrackSource::Spotify,
+                track_source: TrackSource::Spotify,
             },
             Track {
                 title: String::from("The Sky Is Fallin'"),
@@ -239,7 +229,7 @@ mod tests {
                 disc_number: 1,
                 year: 2002,
                 id: String::from("xxx"),
-                source: TrackSource::Spotify,
+                track_source: TrackSource::Spotify,
             },
             Track {
                 title: String::from("Street Spirit (Fade Out)"),
@@ -250,7 +240,7 @@ mod tests {
                 disc_number: 1,
                 year: 1995,
                 id: String::from("xxx"),
-                source: TrackSource::Spotify,
+                track_source: TrackSource::Spotify,
             },
         ];
 
@@ -266,7 +256,7 @@ mod tests {
                 disc_number: 1,
                 year: 2002,
                 id: String::from("xxx"),
-                source: TrackSource::Subsonic,
+                track_source: TrackSource::Subsonic,
             },
             Track {
                 title: String::from("Pictures of a City (including 42nd at Treadmill)"),
@@ -279,7 +269,7 @@ mod tests {
                 // the song was remastered, not the year it was originally released.
                 year: 2011,
                 id: String::from("xxx"),
-                source: TrackSource::Subsonic,
+                track_source: TrackSource::Subsonic,
             },
             Track {
                 title: String::from("The Wanton Song"),
@@ -291,7 +281,7 @@ mod tests {
                 // Another incorrectly tagged album release year
                 year: 1995,
                 id: String::from("xxx"),
-                source: TrackSource::Subsonic,
+                track_source: TrackSource::Subsonic,
             },
             Track {
                 title: String::from("Street Spirit"),
@@ -302,7 +292,7 @@ mod tests {
                 disc_number: 1,
                 year: 1994,
                 id: String::from("xxx"),
-                source: TrackSource::Subsonic,
+                track_source: TrackSource::Subsonic,
             },
             Track {
                 title: String::from("The Court of the Crimson King"),
@@ -313,7 +303,7 @@ mod tests {
                 disc_number: 1,
                 year: 2019,
                 id: String::from("xxx"),
-                source: TrackSource::Subsonic,
+                track_source: TrackSource::Subsonic,
             },
             Track {
                 title: String::from("St. Tristan’s Sword (rough mix)"),
@@ -324,14 +314,14 @@ mod tests {
                 disc_number: 3,
                 year: 2015,
                 id: String::from("xxx"),
-                source: TrackSource::Subsonic,
+                track_source: TrackSource::Subsonic,
             },
         ];
 
         let matches: Vec<Track> = spotify_songs
             .into_iter()
             .map(|t| search(t, &subsonic_songs))
-            .filter(|t| t.source == TrackSource::Subsonic)
+            .filter(|t| t.track_source == TrackSource::Subsonic)
             .collect();
 
         assert_eq!(matches.len(), 6)
