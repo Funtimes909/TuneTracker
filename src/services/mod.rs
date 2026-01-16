@@ -46,7 +46,7 @@ impl Track {
 
         // 1. Song name matching
         match_percent += Self::string_comparisons(&source.title, &target.title);
-        
+
         // 2. Album name matching
         match_percent += Self::string_comparisons(&source.album, &target.album);
 
@@ -88,15 +88,17 @@ impl Track {
         let source = string1.to_lowercase();
         let target = string2.to_lowercase();
 
-        if source == target {
-            return 20;
-        }
-
         // If either source or target contain a prefix/suffix (eg. (Remaster))
         if source.contains(&target) || target.contains(&source) {
+            // An exact match should be rated higher
+            if source == target {
+                return 20;
+            }
+
             return 10;
         }
 
+        // No match was found
         0
     }
 }
