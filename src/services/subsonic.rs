@@ -64,3 +64,8 @@ pub async fn create_playlist(
         )
         .await
 }
+
+/// Gets a single song from subsonic using an ID
+pub async fn get_song(client: &Client, id: &str) -> Option<Track> {
+    client.get_song(id).await.ok().and_then(|song| song.try_into().ok())
+}
