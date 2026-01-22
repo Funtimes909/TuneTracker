@@ -71,15 +71,13 @@ async fn main() {
     println!("Total Tracks: {}", spotify_playlist.tracks.total);
 
     let mut spotify_tracks = Vec::new();
-    let mut track_index = 1;
 
     // Turn all spotify tracks into a Track type and add them to the collection
     for item in spotify_playlist.tracks.items {
         if let Some(PlayableItem::Track(track)) = item.track {
             // Turn source track into a Track
             if let Ok(track) = track.try_into() {
-                spotify_tracks.push((track_index, track));
-                track_index += 1;
+                spotify_tracks.push(track);
             }
         }
     }
@@ -87,15 +85,15 @@ async fn main() {
     // Do a first pass to see how many tracks can be confidently matched.
     // It's important to keep the exact order of the playlist, including unmatched tracks
     // so that a later pass can use those unmatched tracks to prompt the user for input.
-    let partially_matched_playlist: Vec<(i32, Track)> = spotify_tracks
+    let partially_matched_playlist: Vec<Track> = spotify_tracks
         .into_iter()
-        .map(|(i, track)| (i, search(track, &subsonic_tracks)))
+        .map(|track| search(track, &subsonic_tracks))
         .collect();
 
     let mut playlist: Vec<Track> = futures::stream::iter(
         partially_matched_playlist
             .into_iter()
-            .map(|(_, track)| track),
+            .map(|track| track),
     )
     .then(|track| {
         let client = &subsonic_client;
