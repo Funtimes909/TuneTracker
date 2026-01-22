@@ -3,7 +3,7 @@ mod services;
 use std::io::Write;
 
 use clap::{Parser, arg};
-use futures::{TryStreamExt, pin_mut};
+use futures::{StreamExt, TryStreamExt, pin_mut};
 use rspotify::prelude::BaseClient;
 use rspotify_model::{PlayableItem, PlaylistId};
 use services::{spotify, subsonic};
@@ -84,30 +84,46 @@ async fn main() {
         }
     }
 
-    // Recreate the playlist 1:1 including spotify tracks that couldn't be matched
+    // Do a first pass to see how many tracks can be confidently matched.
+    // It's important to keep the exact order of the playlist, including unmatched tracks
+    // so that a later pass can use those unmatched tracks to prompt the user for input.
     let partially_matched_playlist: Vec<(i32, Track)> = spotify_tracks
         .into_iter()
         .map(|(i, track)| (i, search(track, &subsonic_tracks)))
         .collect();
 
-    let mut final_tracks = Vec::new();
-    for (_, track) in partially_matched_playlist {
-        // The track was unable to be matched
-        if track.track_source == TrackSource::Spotify {
-            if let Some(track) = prompt_user(&track, &subsonic_client).await {
-                final_tracks.push(track)
+    let mut playlist: Vec<Track> = futures::stream::iter(
+        partially_matched_playlist
+            .into_iter()
+            .map(|(_, track)| track),
+    )
+    .then(|track| {
+        let client = &subsonic_client;
+        async move {
+
+            // If the track source is spotify, it failed to match in the first pass
+            // prompt the user for input on how to handle the track.
+            // Returns the new track if it could be found and the same old track if not.
+            match track.track_source == TrackSource::Spotify {
+                true => prompt_user(&track, client).await,
+                false => Some(track),
             }
         }
+    })
+    .flat_map(futures::stream::iter)
+    .collect()
+    .await;
 
-        // println!("[{index}] '{}' by '{}'", track.title, track.artist);
-        final_tracks.push(track);
-    }
+    // Remove all remaining unmatched tracks. Navidrome specifically has an issue with keeping
+    // song index in playlists if invalid ID's are provided in the playlist creation
+    playlist.retain(|track| track.track_source == TrackSource::Subsonic);
 
+    // Finally, create the playlist
     match subsonic::create_playlist(
         &subsonic_client,
         args.playlist_name,
         args.playlist_description,
-        final_tracks,
+        playlist,
     )
     .await
     {
@@ -120,7 +136,7 @@ async fn main() {
 /// - Skip the track entirely, no track will be added to the created playlist.
 /// - Enter ID, the user is prompted to enter the track id from the target platform manually.
 /// - Download, currently unimplemented. Unsure of how to handle this at the moment.
-/// 
+///
 /// Returns an Option<Track>, containing Some() if a track could be resolved and None if no track could be
 /// resolved from subsonic.
 async fn prompt_user(missing_track: &Track, client: &Client) -> Option<Track> {
@@ -135,9 +151,11 @@ async fn prompt_user(missing_track: &Track, client: &Client) -> Option<Track> {
     // Flush stdout so we can read from the same line as the available options
     let _ = std::io::stdout().flush();
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).expect("Failed to read stdin!");
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read stdin!");
     // Remove trailing new line and capatalize
-    let input = &input[..input.len()-1].to_uppercase();
+    let input = &input[..input.len() - 1].to_uppercase();
 
     // Default option
     if input.is_empty() || input.eq("S") {
@@ -149,13 +167,15 @@ async fn prompt_user(missing_track: &Track, client: &Client) -> Option<Track> {
         let mut id = String::new();
         print!("Please enter the subsonic ID of the track: ");
         let _ = std::io::stdout().flush();
-        std::io::stdin().read_line(&mut id).expect("Failed to read stdin!");
+        std::io::stdin()
+            .read_line(&mut id)
+            .expect("Failed to read stdin!");
 
         // Check for that song on subsonic
-        let song = get_song(client, &id[..id.len()-1]).await;
+        let song = get_song(client, &id[..id.len() - 1]).await;
 
-        return song
+        return song;
     }
 
-    return None
+    return None;
 }
