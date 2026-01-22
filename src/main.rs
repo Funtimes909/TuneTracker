@@ -3,25 +3,19 @@ mod services;
 use std::io::Write;
 
 use clap::{Parser, arg};
-use futures::{StreamExt, TryStreamExt, pin_mut};
+use futures::StreamExt;
 use rspotify::prelude::BaseClient;
 use rspotify_model::{PlayableItem, PlaylistId};
 use services::{spotify, subsonic};
 use submarine::Client;
 
-use crate::services::{Track, TrackSource, search, subsonic::get_song};
+use services::{Track, TrackSource, search, subsonic::get_song};
 
 #[derive(Parser)]
 #[command(name = "TuneTracker")]
 struct Args {
     #[arg(long)]
     playlist: String,
-
-    #[arg(long)]
-    playlist_name: String,
-
-    #[arg(long)]
-    playlist_description: String,
 
     #[arg(long)]
     client_id: String,
@@ -67,14 +61,20 @@ async fn main() {
         }
     };
 
-    let playlist_stream = spotify_client.playlist_items(playlist_id, None, None);
-    let mut spotify_tracks = Vec::new();
+    let spotify_playlist = match spotify_client.playlist(playlist_id, None, None).await {
+        Ok(playlist) => playlist,
+        Err(e) => panic!("{e}"),
+    };
 
-    pin_mut!(playlist_stream);
+    println!("{BOLD}{GREEN}=== Importing Playlist ==={RESET}");
+    println!("Name: {}", spotify_playlist.name);
+    println!("Total Tracks: {}", spotify_playlist.tracks.total);
+
+    let mut spotify_tracks = Vec::new();
     let mut track_index = 1;
 
     // Turn all spotify tracks into a Track type and add them to the collection
-    while let Ok(Some(item)) = playlist_stream.try_next().await {
+    for item in spotify_playlist.tracks.items {
         if let Some(PlayableItem::Track(track)) = item.track {
             // Turn source track into a Track
             if let Ok(track) = track.try_into() {
@@ -83,8 +83,6 @@ async fn main() {
             }
         }
     }
-
-    let spotify_playlist_length = spotify_tracks.len();
 
     // Do a first pass to see how many tracks can be confidently matched.
     // It's important to keep the exact order of the playlist, including unmatched tracks
@@ -102,7 +100,6 @@ async fn main() {
     .then(|track| {
         let client = &subsonic_client;
         async move {
-
             // If the track source is spotify, it failed to match in the first pass
             // prompt the user for input on how to handle the track.
             // Returns the new track if it could be found and the same old track if not.
@@ -128,8 +125,8 @@ async fn main() {
     // Finally, create the playlist
     match subsonic::create_playlist(
         &subsonic_client,
-        args.playlist_name,
-        args.playlist_description,
+        spotify_playlist.name,
+        spotify_playlist.description.unwrap_or(String::new()),
         playlist,
     )
     .await
@@ -137,8 +134,11 @@ async fn main() {
         Ok(_) => {
             println!();
             println!("{BOLD}{GREEN}=== Playlist created! ==={RESET}");
-            println!("{playlist_length}/{spotify_playlist_length} Songs matched!");
-        },
+            println!(
+                "{playlist_length}/{} Songs matched!",
+                spotify_playlist.tracks.total
+            );
+        }
         Err(e) => println!("Error during playlist creation! {e}"),
     }
 }
