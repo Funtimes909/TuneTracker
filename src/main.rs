@@ -84,6 +84,8 @@ async fn main() {
         }
     }
 
+    let spotify_playlist_length = spotify_tracks.len();
+
     // Do a first pass to see how many tracks can be confidently matched.
     // It's important to keep the exact order of the playlist, including unmatched tracks
     // so that a later pass can use those unmatched tracks to prompt the user for input.
@@ -105,7 +107,11 @@ async fn main() {
             // prompt the user for input on how to handle the track.
             // Returns the new track if it could be found and the same old track if not.
             match track.track_source == TrackSource::Spotify {
-                true => prompt_user(&track, client).await,
+                true => {
+                    // Separate each prompt slightly
+                    println!();
+                    prompt_user(&track, client).await
+                }
                 false => Some(track),
             }
         }
@@ -117,6 +123,7 @@ async fn main() {
     // Remove all remaining unmatched tracks. Navidrome specifically has an issue with keeping
     // song index in playlists if invalid ID's are provided in the playlist creation
     playlist.retain(|track| track.track_source == TrackSource::Subsonic);
+    let playlist_length = playlist.len();
 
     // Finally, create the playlist
     match subsonic::create_playlist(
@@ -127,7 +134,11 @@ async fn main() {
     )
     .await
     {
-        Ok(_) => println!("Playlist created!"),
+        Ok(_) => {
+            println!();
+            println!("{BOLD}{GREEN}=== Playlist created! ==={RESET}");
+            println!("{playlist_length}/{spotify_playlist_length} Songs matched!");
+        },
         Err(e) => println!("Error during playlist creation! {e}"),
     }
 }
@@ -172,9 +183,7 @@ async fn prompt_user(missing_track: &Track, client: &Client) -> Option<Track> {
             .expect("Failed to read stdin!");
 
         // Check for that song on subsonic
-        let song = get_song(client, &id[..id.len() - 1]).await;
-
-        return song;
+        return get_song(client, &id[..id.len() - 1]).await;
     }
 
     return None;
