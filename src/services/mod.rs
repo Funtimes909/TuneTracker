@@ -4,7 +4,7 @@ pub mod subsonic;
 use rspotify_model::FullTrack;
 use submarine::data::Child;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Track {
     pub title: String,
     pub artist: String,
@@ -17,9 +17,10 @@ pub struct Track {
     pub track_source: TrackSource,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum TrackSource {
     Subsonic,
+    #[default]
     Spotify,
 }
 
