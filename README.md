@@ -7,11 +7,11 @@ A (Work in progress!!) simple commandline tool that imports spotify playlists in
 - Accurately matches tracks across platforms
 - Simple commandline interface
 - Creates playlists on subsonic servers
+- Prompts users for for input for songs that couldn't be matched 
 
 **Planned**
 - Importing of saved tracks instead of playlists
 - Downloading of missing songs in flac/mp3 format
-- Prompt user for uncertain matches to improve accuracy
 - Other platform support (Amazon Music, YouTube Music, Tidal etc) (Maybe)
 
 ## Installation
