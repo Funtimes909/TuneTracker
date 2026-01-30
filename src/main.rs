@@ -2,7 +2,7 @@ mod services;
 
 use std::io::Write;
 
-use clap::{Parser, ValueEnum, arg};
+use clap::{Parser, ValueEnum};
 use futures::StreamExt;
 use rspotify::prelude::BaseClient;
 use rspotify_model::{PlayableItem, PlaylistId};
@@ -16,25 +16,19 @@ use crate::services::subsonic::add_songs_to_favorites;
 #[derive(Parser)]
 #[command(name = "TuneTracker")]
 struct Args {
-    #[arg(long)]
+    #[clap(long, help = "Id of the playlist to import")]
     playlist: String,
-
-    #[clap(long, default_value_t, value_enum)]
+    #[clap(long, default_value_t, value_enum, help = "Whether to add songs to a new playlist or add them to favorited songs")]
     destination: TrackDestination,
-
-    #[arg(long)]
+    #[clap(long, help = "Spotify client id")]
     client_id: String,
-
-    #[arg(long)]
+    #[clap(long, help = "Spotify client secret")]
     client_secret: String,
-
-    #[arg(long)]
+    #[clap(long, help = "URL of the subsonic server")]
     subsonic_url: String,
-
-    #[arg(long)]
+    #[clap(long, help = "Username of the user on the subsonic server")]
     subsonic_user: String,
-
-    #[arg(long)]
+    #[clap(long, help = "Password for the user account")]
     subsonic_password: String,
 }
 
