@@ -2,7 +2,7 @@ mod services;
 
 use std::io::Write;
 
-use clap::{Parser, arg};
+use clap::{Parser, ValueEnum, arg};
 use futures::StreamExt;
 use rspotify::prelude::BaseClient;
 use rspotify_model::{PlayableItem, PlaylistId};
@@ -11,11 +11,16 @@ use submarine::Client;
 
 use services::{Track, TrackSource, search, subsonic::get_song};
 
+use crate::services::subsonic::add_songs_to_favorites;
+
 #[derive(Parser)]
 #[command(name = "TuneTracker")]
 struct Args {
     #[arg(long)]
     playlist: String,
+
+    #[clap(long, default_value_t, value_enum)]
+    destination: TrackDestination,
 
     #[arg(long)]
     client_id: String,
@@ -31,6 +36,13 @@ struct Args {
 
     #[arg(long)]
     subsonic_password: String,
+}
+
+#[derive(Default, Clone, PartialEq, ValueEnum)]
+enum TrackDestination {
+    #[default]
+    Playlist,
+    Favorites,
 }
 
 // Colors
@@ -90,54 +102,65 @@ async fn main() {
         .map(|track| search(track, &subsonic_tracks))
         .collect();
 
-    let mut playlist: Vec<Track> = futures::stream::iter(
-        partially_matched_playlist
-            .into_iter()
-            .map(|track| track),
-    )
-    .then(|track| {
-        let client = &subsonic_client;
-        async move {
-            // If the track source is spotify, it failed to match in the first pass
-            // prompt the user for input on how to handle the track.
-            // Returns the new track if it could be found and the same old track if not.
-            match track.track_source == TrackSource::Spotify {
-                true => {
-                    // Separate each prompt slightly
-                    println!();
-                    prompt_user(&track, client).await
+    let mut playlist: Vec<Track> =
+        futures::stream::iter(partially_matched_playlist.into_iter().map(|track| track))
+            .then(|track| {
+                let client = &subsonic_client;
+                async move {
+                    // If the track source is spotify, it failed to match in the first pass
+                    // prompt the user for input on how to handle the track.
+                    // Returns the new track if it could be found and the same old track if not.
+                    match track.track_source == TrackSource::Spotify {
+                        true => {
+                            // Separate each prompt slightly
+                            println!();
+                            prompt_user(&track, client).await
+                        }
+                        false => Some(track),
+                    }
                 }
-                false => Some(track),
-            }
-        }
-    })
-    .flat_map(futures::stream::iter)
-    .collect()
-    .await;
+            })
+            .flat_map(futures::stream::iter)
+            .collect()
+            .await;
 
     // Remove all remaining unmatched tracks. Navidrome specifically has an issue with keeping
     // song index in playlists if invalid ID's are provided in the playlist creation
     playlist.retain(|track| track.track_source == TrackSource::Subsonic);
     let playlist_length = playlist.len();
 
-    // Finally, create the playlist
-    match subsonic::create_playlist(
-        &subsonic_client,
-        spotify_playlist.name,
-        spotify_playlist.description.unwrap_or(String::new()),
-        playlist,
-    )
-    .await
-    {
-        Ok(_) => {
-            println!();
-            println!("{BOLD}{GREEN}=== Playlist created! ==={RESET}");
-            println!(
-                "{playlist_length}/{} Songs matched!",
-                spotify_playlist.tracks.total
-            );
+    // Finally, add the songs to either a new playlist or the favorites
+    if args.destination == TrackDestination::Favorites {
+        match add_songs_to_favorites(&subsonic_client, playlist).await {
+            Ok(_) => {
+                println!();
+                println!("{BOLD}{GREEN}=== Songs added! ==={RESET}");
+                println!(
+                    "{playlist_length}/{} Songs matched!",
+                    spotify_playlist.tracks.total
+                );
+            }
+            Err(e) => println!("Error adding songs to favorites! {e}"),
         }
-        Err(e) => println!("Error during playlist creation! {e}"),
+    } else {
+        match subsonic::create_playlist(
+            &subsonic_client,
+            spotify_playlist.name,
+            spotify_playlist.description.unwrap_or(String::new()),
+            playlist,
+        )
+        .await
+        {
+            Ok(_) => {
+                println!();
+                println!("{BOLD}{GREEN}=== Playlist created! ==={RESET}");
+                println!(
+                    "{playlist_length}/{} Songs matched!",
+                    spotify_playlist.tracks.total
+                );
+            }
+            Err(e) => println!("Error during playlist creation! {e}"),
+        }
     }
 }
 

@@ -65,6 +65,19 @@ pub async fn create_playlist(
         .await
 }
 
+/// Adds a list of songs to the "favorites" list
+pub async fn add_songs_to_favorites(
+    client: &Client,
+    tracks: Vec<Track>,
+) -> Result<Info, SubsonicError> {
+    let albums: Vec<String> = Vec::new();
+    let artists: Vec<String> = Vec::new();
+
+    client
+        .star(tracks.into_iter().map(|t| t.id).collect(), albums, artists)
+        .await
+}
+
 /// Gets a single song from subsonic using an ID
 pub async fn get_song(client: &Client, id: &str) -> Option<Track> {
     client

@@ -7,7 +7,8 @@ A (Work in progress!!) simple commandline tool that imports spotify playlists in
 - Accurately matches tracks across platforms
 - Simple commandline interface
 - Creates playlists on subsonic servers
-- Prompts users for for input for songs that couldn't be matched 
+- Prompts users for for input for songs that couldn't be matched
+- Add spotify songs to favorites instead of creating a new playlist
 
 **Planned**
 - Importing of saved tracks instead of playlists
@@ -44,6 +45,8 @@ The playlist argument takes a spotify playlist id, not a URL. You can get the pl
 **Subsonic**
 
 Provide your subsonic servers URL, username and password as arguments to the program. (eg. --subsonic-url "https://navidrome.example.com" --subsonic-user "LedZeppelinLover67" --subsonic-password "[password here]")
+
+You can also specify if you would like the playlist to be imported to your "Favorites" section on subsonic instead of creating a new playlist, by default it creates a new playlist, but you can add "--destination favorites" for it to import songs to the favorites section instead.
 
 ## Contributing
 Contributions are welcome, please open a pull request if you wish to submit code. For larger features, please open an issue first to discuss the change
