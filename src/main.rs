@@ -18,7 +18,12 @@ use crate::services::subsonic::add_songs_to_favorites;
 struct Args {
     #[clap(long, help = "Id of the playlist to import")]
     playlist: String,
-    #[clap(long, default_value_t, value_enum, help = "Whether to add songs to a new playlist or add them to favorited songs")]
+    #[clap(
+        long,
+        default_value_t,
+        value_enum,
+        help = "Whether to add songs to a new playlist or add them to favorited songs"
+    )]
     destination: TrackDestination,
     #[clap(long, help = "Spotify client id")]
     client_id: String,
@@ -67,7 +72,10 @@ async fn main() {
         }
     };
 
-    let spotify_playlist = match spotify_client.playlist(playlist_id, None, None).await {
+    let spotify_playlist = match spotify_client
+        .playlist(playlist_id.clone(), None, None)
+        .await
+    {
         Ok(playlist) => playlist,
         Err(e) => panic!("{e}"),
     };
@@ -77,15 +85,29 @@ async fn main() {
     println!("Total Tracks: {}", spotify_playlist.tracks.total);
 
     let mut spotify_tracks = Vec::new();
+    let mut offset = 0;
 
     // Turn all spotify tracks into a Track type and add them to the collection
-    for item in spotify_playlist.tracks.items {
-        if let Some(PlayableItem::Track(track)) = item.track {
-            // Turn source track into a Track
-            if let Ok(track) = track.try_into() {
-                spotify_tracks.push(track);
+    loop {
+        let page = spotify_client
+            .playlist_items_manual(playlist_id.clone(), None, None, Some(50), Some(offset))
+            .await
+            .expect("Failed to get page of tracks from spotify!");
+
+        for item in page.items {
+            if let Some(PlayableItem::Track(track)) = item.track {
+                // Turn source track into a Track
+                if let Ok(track) = track.try_into() {
+                    spotify_tracks.push(track);
+                }
             }
         }
+
+        if page.next.is_none() {
+            break;
+        }
+
+        offset += 50
     }
 
     // Do a first pass to see how many tracks can be confidently matched.
