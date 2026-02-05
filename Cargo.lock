@@ -3,6 +3,19 @@
 version = 4
 
 [[package]]
+name = "TuneTracker"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "futures",
+ "futures-util",
+ "rspotify",
+ "rspotify-model",
+ "submarine",
+ "tokio",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1919,19 +1932,6 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
-
-[[package]]
-name = "tunetracker"
-version = "0.1.0"
-dependencies = [
- "clap",
- "futures",
- "futures-util",
- "rspotify",
- "rspotify-model",
- "submarine",
- "tokio",
-]
 
 [[package]]
 name = "typenum"
