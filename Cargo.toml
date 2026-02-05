@@ -1,9 +1,13 @@
 [package]
+exclude = [
+    "images/*"
+]
+
 name = "TuneTracker"
 description = "A simple tool that imports spotify playlists into subsonic music servers."
 repository = "https://github.com/Funtimes909/TuneTracker"
 readme = "README.md"
-license = "GNU General Public License v3.0"
+license = "GPL-3.0-only"
 version = "0.1.0"
 edition = "2024"
 
