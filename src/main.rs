@@ -119,7 +119,7 @@ async fn main() {
         .collect();
 
     let mut playlist: Vec<Track> =
-        futures::stream::iter(partially_matched_playlist.into_iter().map(|track| track))
+        futures::stream::iter(partially_matched_playlist.into_iter())
             .then(|track| {
                 let client = &subsonic_client;
                 async move {
@@ -223,5 +223,5 @@ async fn prompt_user(missing_track: &Track, client: &Client) -> Option<Track> {
         return get_song(client, &id[..id.len() - 1]).await;
     }
 
-    return None;
+    None
 }

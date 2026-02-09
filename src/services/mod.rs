@@ -157,7 +157,7 @@ impl TryFrom<FullTrack> for Track {
             disc_number: track.disc_number as u32,
             year: release_year,
             id: track.id.ok_or(())?.to_string(),
-            isrc: track.external_ids.get("isrc").map(|s| s.clone()),
+            isrc: track.external_ids.get("isrc").cloned(),
             musicbrainz_id: None,
             track_source: TrackSource::Spotify,
         })
@@ -178,7 +178,7 @@ impl TryFrom<Child> for Track {
             disc_number: track.disc_number.unwrap_or(0) as u32,
             year: track.year.ok_or(())?,
             id: track.id,
-            isrc: track.isrc.first().map(|s| s.clone()),
+            isrc: track.isrc.first().cloned(),
             musicbrainz_id: track.music_brainz_id,
             track_source: TrackSource::Subsonic,
         })
