@@ -14,6 +14,8 @@ pub struct Track {
     pub disc_number: u32,
     pub year: i32,
     pub id: String,
+    pub isrc: Option<String>,
+    pub musicbrainz_id: Option<String>,
     pub track_source: TrackSource,
 }
 
@@ -41,47 +43,58 @@ impl Track {
     // Compares different aspects of two songs and gives a rating based on how well they match
     // A song is considered a match if the rating is 70 or higher
     pub fn match_tracks(source: &Self, target: &Self) -> bool {
-        let mut match_percent = 0;
+        let mut score = 0;
 
-        let multi_disc_album = source.disc_number > 1;
+        // 1. Album name matching
+        let album_name_match = Self::string_comparisons(&source.album, &target.album);
+        score += album_name_match;
 
-        // 1. Song name matching
-        match_percent += Self::string_comparisons(&source.title, &target.title);
+        // 2. International Standard Recording Code matching
+        if let (Some(source_isrc), Some(target_isrc)) = (&source.isrc, &target.isrc) {
+            if source_isrc == target_isrc {
 
-        // 2. Album name matching
-        match_percent += Self::string_comparisons(&source.album, &target.album);
-
-        // 3. Year matching
-        if source.year == target.year {
-            match_percent += 10
-        }
-
-        // 4. Artist name matching
-        if source.artist.to_lowercase() == target.artist.to_lowercase() {
-            match_percent += 20
-        }
-
-        // 5. Account for 1-3 seconds of variation in track duration
-        if ((source.duration - target.duration).abs()) <= 3 {
-            // If the duration is an exact match. rate it higher
-            if source.duration == target.duration {
-                match_percent += 20
-            } else {
-                match_percent += 10;
+                // Compilation (Greatest Hits, etc) albums may share the same ISRC for certain tracks
+                // By checking if the album name is even slightly a match, this will eliminate most false positives
+                if album_name_match > 0 {
+                    return true
+                }
             }
         }
 
-        // 6. Track number
-        // Spotify resets the track number for each disc, meaning the track_number
-        // is unreliable unless it's not a multi-disc album
-        if source.track_source == TrackSource::Spotify
-            && !multi_disc_album
-            && source.track_number == target.track_number
-        {
-            match_percent += 20
+        // 3. Song name matching
+        score += Self::string_comparisons(&source.title, &target.title);
+
+        // 4. Year matching
+        if source.year == target.year {
+            score += 10
         }
 
-        match_percent >= 70
+        // 5. Artist name matching
+        if source.artist.to_lowercase() == target.artist.to_lowercase() {
+            score += 20
+        }
+
+        // 6. Account for 1-3 seconds of variation in track duration
+        if ((source.duration - target.duration).abs()) <= 3 {
+            // If the duration is an exact match, rate it higher
+            if source.duration == target.duration {
+                score += 20
+            } else {
+                score += 10;
+            }
+        }
+
+        // 7. Track number
+        // Spotify resets the track number for each disc, meaning the track number
+        // is unreliable unless it's not a multi-disc album
+        if source.track_source == TrackSource::Spotify
+            && !source.disc_number > 1
+            && source.track_number == target.track_number
+        {
+            score += 20
+        }
+
+        score >= 70
     }
 
     // Compare two strings and return a rating on how similar they are.
@@ -89,13 +102,13 @@ impl Track {
         let source = string1.to_lowercase();
         let target = string2.to_lowercase();
 
+        // An exact match should be rated highest
+        if source == target {
+            return 20;
+        }
+
         // If either source or target contain a prefix/suffix (eg. (Remaster))
         if source.contains(&target) || target.contains(&source) {
-            // An exact match should be rated higher
-            if source == target {
-                return 20;
-            }
-
             return 10;
         }
 
@@ -112,7 +125,6 @@ impl Track {
 // api doesn't support adding tracks at a specific index. so the songs must be added all at once
 // and iterated through, adding the matches and prompting for user input for the missing songs
 pub fn search(source_track: Track, collection: &[Track]) -> Track {
-    // TODO! handle instances where they may be more than one match (remasters, remixes, etc)
     for target_track in collection {
         if Track::match_tracks(&source_track, target_track) {
             return target_track.clone();
@@ -145,6 +157,8 @@ impl TryFrom<FullTrack> for Track {
             disc_number: track.disc_number as u32,
             year: release_year,
             id: track.id.ok_or(())?.to_string(),
+            isrc: track.external_ids.get("isrc").map(|s| s.clone()),
+            musicbrainz_id: None,
             track_source: TrackSource::Spotify,
         })
     }
@@ -164,6 +178,8 @@ impl TryFrom<Child> for Track {
             disc_number: track.disc_number.unwrap_or(0) as u32,
             year: track.year.ok_or(())?,
             id: track.id,
+            isrc: track.isrc.first().map(|s| s.clone()),
+            musicbrainz_id: track.music_brainz_id,
             track_source: TrackSource::Subsonic,
         })
     }
@@ -186,6 +202,8 @@ mod tests {
                 disc_number: 3,
                 year: 1982,
                 id: String::from("xxx"),
+                isrc: Some(String::from("USAT21500101")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Spotify,
             },
             Track {
@@ -199,6 +217,8 @@ mod tests {
                 disc_number: 1,
                 year: 1969,
                 id: String::from("xxx"),
+                isrc: Some(String::from("GBCTX1400804")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Spotify,
             },
             Track {
@@ -210,6 +230,8 @@ mod tests {
                 disc_number: 1,
                 year: 1970,
                 id: String::from("xxx"),
+                isrc: Some(String::from("GBCTX1500265")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Spotify,
             },
             Track {
@@ -221,6 +243,8 @@ mod tests {
                 disc_number: 2,
                 year: 1975,
                 id: String::from("xxx"),
+                isrc: Some(String::from("USAT21300975")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Spotify,
             },
             Track {
@@ -232,6 +256,8 @@ mod tests {
                 disc_number: 1,
                 year: 2002,
                 id: String::from("xxx"),
+                isrc: Some(String::from("USIR10211296")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Spotify,
             },
             Track {
@@ -243,6 +269,8 @@ mod tests {
                 disc_number: 1,
                 year: 1995,
                 id: String::from("xxx"),
+                isrc: Some(String::from("GBAYE9400061")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Spotify,
             },
         ];
@@ -259,6 +287,8 @@ mod tests {
                 disc_number: 1,
                 year: 2002,
                 id: String::from("xxx"),
+                isrc: Some(String::from("USIR10211296")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Subsonic,
             },
             Track {
@@ -272,6 +302,8 @@ mod tests {
                 // the song was remastered, not the year it was originally released.
                 year: 2011,
                 id: String::from("xxx"),
+                isrc: Some(String::from("GBCTX9900221")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Subsonic,
             },
             Track {
@@ -284,6 +316,8 @@ mod tests {
                 // Another incorrectly tagged album release year
                 year: 1995,
                 id: String::from("xxx"),
+                isrc: Some(String::from("USAT21300975")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Subsonic,
             },
             Track {
@@ -295,6 +329,8 @@ mod tests {
                 disc_number: 1,
                 year: 1994,
                 id: String::from("xxx"),
+                isrc: Some(String::from("GBAYE9400061")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Subsonic,
             },
             Track {
@@ -306,6 +342,8 @@ mod tests {
                 disc_number: 1,
                 year: 2019,
                 id: String::from("xxx"),
+                isrc: Some(String::from("B07X13ZHG9")),
+                musicbrainz_id: None,
                 track_source: TrackSource::Subsonic,
             },
             Track {
@@ -317,6 +355,8 @@ mod tests {
                 disc_number: 3,
                 year: 2015,
                 id: String::from("xxx"),
+                isrc: None,
+                musicbrainz_id: None,
                 track_source: TrackSource::Subsonic,
             },
         ];

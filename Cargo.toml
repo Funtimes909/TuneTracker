@@ -17,5 +17,5 @@ futures = "0.3.31"
 futures-util = "0.3.31"
 rspotify = { version = "0.15.3", features = ["cli"] }
 rspotify-model = "0.15.3"
-submarine = "0.1.1"
+submarine = { git = "https://github.com/eppixx/submarine/", version = "0.1.1", features = ["navidrome"] }
 tokio = { version = "1.49.0", features = ["full"] }
