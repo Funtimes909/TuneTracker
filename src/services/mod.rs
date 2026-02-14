@@ -52,11 +52,10 @@ impl Track {
         // 2. International Standard Recording Code matching
         if let (Some(source_isrc), Some(target_isrc)) = (&source.isrc, &target.isrc) {
             if source_isrc == target_isrc {
-
                 // Compilation (Greatest Hits, etc) albums may share the same ISRC for certain tracks
                 // By checking if the album name is even slightly a match, this will eliminate most false positives
                 if album_name_match > 0 {
-                    return true
+                    return true;
                 }
             }
         }

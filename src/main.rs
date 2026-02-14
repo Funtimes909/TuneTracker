@@ -118,27 +118,26 @@ async fn main() {
         .map(|track| search(track, &subsonic_tracks))
         .collect();
 
-    let mut playlist: Vec<Track> =
-        futures::stream::iter(partially_matched_playlist.into_iter())
-            .then(|track| {
-                let client = &subsonic_client;
-                async move {
-                    // If the track source is spotify, it failed to match in the first pass
-                    // prompt the user for input on how to handle the track.
-                    // Returns the new track if it could be found and the same old track if not.
-                    match track.track_source == TrackSource::Spotify {
-                        true => {
-                            // Separate each prompt slightly
-                            println!();
-                            prompt_user(&track, client).await
-                        }
-                        false => Some(track),
+    let mut playlist: Vec<Track> = futures::stream::iter(partially_matched_playlist.into_iter())
+        .then(|track| {
+            let client = &subsonic_client;
+            async move {
+                // If the track source is spotify, it failed to match in the first pass
+                // prompt the user for input on how to handle the track.
+                // Returns the new track if it could be found and the same old track if not.
+                match track.track_source == TrackSource::Spotify {
+                    true => {
+                        // Separate each prompt slightly
+                        println!();
+                        prompt_user(&track, client).await
                     }
+                    false => Some(track),
                 }
-            })
-            .flat_map(futures::stream::iter)
-            .collect()
-            .await;
+            }
+        })
+        .flat_map(futures::stream::iter)
+        .collect()
+        .await;
 
     // Remove all remaining unmatched tracks. Navidrome specifically has an issue with keeping
     // song index in playlists if invalid ID's are provided in the playlist creation
@@ -190,11 +189,13 @@ async fn main() {
 async fn prompt_user(missing_track: &Track, client: &Client) -> Option<Track> {
     println!("{BOLD}{YELLOW}=== Missing track! ==={RESET}");
     println!(
-        "Can't find '{}' by '{}'",
-        missing_track.title, missing_track.artist
+        "Can't find '{}' from '{}' by '{}'",
+        missing_track.title, missing_track.album, missing_track.artist
     );
     println!("What would you like to do?");
-    print!("[{BOLD}{GREEN}S{RESET}]kip. Enter [{BOLD}I{RESET}]d: ");
+    print!(
+        "[{BOLD}{GREEN}S{RESET}]kip. Enter [{BOLD}I{RESET}]d. [{BOLD}D{RESET}]ownload song. Download [{BOLD}A{RESET}]lbum: "
+    );
 
     // Flush stdout so we can read from the same line as the available options
     let _ = std::io::stdout().flush();
